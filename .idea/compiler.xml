@@ -9,6 +9,7 @@
         <module name="file-stream-httpclient" />
         <module name="file-stream-server" />
         <module name="file-stream-pojoclient" />
+        <module name="file-multipart-server" />
       </profile>
     </annotationProcessing>
   </component>
