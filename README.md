@@ -244,6 +244,13 @@ file.stream.buffer.size=8192
 
 # 멀티파트 업로드 비활성화 (Raw 스트림 사용)
 spring.servlet.multipart.enabled=false
+
+# Actuator 설정 (모니터링 및 헬스체크)
+management.endpoints.web.exposure.include=health,info,metrics
+management.endpoint.health.show-details=when-authorized
+management.endpoints.web.base-path=/actuator
+management.health.defaults.enabled=true
+management.info.env.enabled=true
 ```
 
 ### 3. 강력한 오류 처리 및 모니터링
@@ -267,6 +274,8 @@ spring.servlet.multipart.enabled=false
 | `file.upload.directory` | ./uploads | 파일 저장 디렉토리 |
 | `file.stream.buffer.size` | 8192 | 스트림 처리 버퍼 크기 (bytes) |
 | `spring.servlet.multipart.enabled` | false | 멀티파트 업로드 비활성화 |
+| `management.endpoints.web.exposure.include` | health,info,metrics | 노출할 Actuator 엔드포인트 |
+| `management.endpoints.web.base-path` | /actuator | Actuator 기본 경로 |
 
 ### 클라이언트 설정 옵션  
 
@@ -344,6 +353,40 @@ java -Xmx64m -Xms32m -jar file-stream-client-1.0.0.jar \
 **테스트 파일 생성:**
 - **`create-test-files.bat`**: 기본 테스트 파일 생성
 - **`create-100mb-test.bat`**: 100MB 테스트 파일 생성
+
+**실행중인 프로세스 확인 후 종료하기**
+
+```powershell
+# file-stream-server 실행중인 프로세스 찾기
+$ Get-WmiObject Win32_Process | Where-Object { $_.CommandLine -like "*file-stream-server*" } | Select-Object ProcessId, Name, CommandLine
+
+ProcessId Name     CommandLine
+--------- ----     -----------
+     1888 java.exe java  -jar target\file-stream-server-1.0.0.jar
+
+# 프로세스 종료 하기 
+$ taskkill /PID 1888 /F
+
+```
+
+**서버 Health Check 확인**
+
+Spring Boot Actuator를 통한 서버 상태 확인:
+
+```powershell
+# 서버 헬스 체크
+$ curl -s http://localhost:8080/actuator/health
+{"status":"UP"}
+
+# 서버 정보 확인
+$ curl -s http://localhost:8080/actuator/info
+{"app":{"name":"File Stream Server","description":"Memory-efficient file streaming API server","version":"1.0.0"}}
+
+# 사용 가능한 엔드포인트 목록
+$ curl -s http://localhost:8080/actuator
+```
+
+
 
 ## 📊 성능 검증 결과 ✅
 
@@ -571,7 +614,9 @@ Pull Request 가이드라인:
 |--------|-----|
 | API 서버 | http://localhost:8080 |
 | 파일 업로드 | http://localhost:8080/api/v1/files/upload |
-| 헬스체크 | http://localhost:8080/actuator/health (예정) |
+| 헬스체크 | http://localhost:8080/actuator/health |
+| 서버 정보 | http://localhost:8080/actuator/info |
+| 메트릭스 | http://localhost:8080/actuator/metrics |
 
 ### 성능 지표 (100MB 파일 기준)
 | 메트릭 | 값 |
@@ -618,3 +663,4 @@ Pull Request 가이드라인:
 - **프로덕션 환경**: `file-stream-httpclient` 권장
 - **레거시 시스템**: `file-stream-pojoclient` 권장 (의존성 최소화)
 - **테스트 환경**: 둘 다 동일한 성능과 기능 제공
+

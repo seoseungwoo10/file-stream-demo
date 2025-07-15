@@ -2,8 +2,17 @@
 setlocal
 
 if "%~1"=="" (
-    echo Usage: test-upload.bat "path\to\file"
-    echo Example: test-upload.bat "C:\data\test.txt"
+    echo Usage: test-upload-httpclient.bat "path\to\file"
+    echo Example: test-upload-httpclient.bat "C:\data\test.txt"
+    pause
+    exit /b 1
+)
+
+REM 서버가 실행 중인지 확인
+curl -s http://localhost:8080/actuator/health > nul 2>&1
+if errorlevel 1 (
+    echo [ERROR] Server is not running. Please start the server first.
+    echo Run: start-server.bat
     pause
     exit /b 1
 )
