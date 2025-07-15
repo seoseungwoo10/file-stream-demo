@@ -247,7 +247,7 @@ public class FileStreamClient {
             
         // 20MB 이상 사용 시 경고
         if (usedMemory > 20 * 1024 * 1024) {
-            System.err.printf("⚠️  WARNING: Memory usage exceeds 20MB limit! Used: %.2f MB%n", 
+            System.err.printf("⚠️ WARNING: Memory usage exceeds 20MB limit! Used: %.2f MB%n",
                 usedMemory / 1024.0 / 1024.0);
         }
     }

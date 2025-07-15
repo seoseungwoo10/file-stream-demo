@@ -8,6 +8,7 @@
         <outputRelativeToContentRoot value="true" />
         <module name="file-stream-httpclient" />
         <module name="file-stream-server" />
+        <module name="file-stream-pojoclient" />
       </profile>
     </annotationProcessing>
   </component>

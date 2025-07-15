@@ -135,6 +135,7 @@ public class FileStreamClient {
 
             HttpPost httpPost = new HttpPost(finalUrl);
             httpPost.setHeader("Content-Type", "application/octet-stream");
+            httpPost.setHeader("Content-Length", String.valueOf(fileSize));
             httpPost.setConfig(requestConfig);
 
             // 청크 기반 스트리밍 엔티티 생성
