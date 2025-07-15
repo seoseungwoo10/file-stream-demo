@@ -50,6 +50,13 @@ file-stream-demo/
 │   ├── src/main/resources/
 │   │   └── application.properties
 │   └── target/file-stream-pojoclient-1.0.0.jar
+├── file-multipart-pojoclient/      # Java CLI POJO Multipart 클라이언트 (java.net 사용)
+│   ├── src/main/java/
+│   │   └── com/example/filestream/multipartpojoclient/
+│   │       └── FileMultipartClient.java
+│   ├── src/main/resources/
+│   │   └── application.properties
+│   └── target/file-multipart-pojoclient-1.0.0.jar
 ├── pom.xml                      # Maven 부모 프로젝트 설정
 └── README.md
 ```
@@ -72,6 +79,7 @@ mvn clean package
 cd file-stream-server && mvn clean package
 cd file-stream-httpclient && mvn clean package
 cd file-stream-pojoclient && mvn clean package
+cd file-multipart-pojoclient && mvn clean package
 ```
 
 ### 3. 서버 실행
@@ -116,6 +124,21 @@ java -jar target/file-stream-pojoclient-1.0.0.jar \
 java -Xmx64m -Xms32m -jar target/file-stream-pojoclient-1.0.0.jar \
   --file.path="test-100mb.dat" \
   --target.url="http://localhost:8080/api/v1/files/upload"
+```
+
+#### Multipart POJO 기반 클라이언트 (java.net 사용)
+```bash
+cd file-multipart-pojoclient
+
+# 기본 사용법
+java -jar target/file-multipart-pojoclient-1.0.0.jar \
+  --files="C:/path/to/your/file.txt" \
+  --target.url="http://localhost:8081/api/v1/multipart/upload"
+
+# 메모리 제한 테스트용 (선택사항)  
+java -Xmx64m -Xms32m -jar target/file-multipart-pojoclient-1.0.0.jar \
+  --files="test-100mb.dat" \
+  --target.url="http://localhost:8081/api/v1/multipart/upload"
 ```
 
 ### Multipart 서버 실행 (포트 8081)
@@ -884,4 +907,69 @@ Pull Request 가이드라인:
 - **메타데이터 관리**: `file-multipart-server` (기능 풍부함 우선)
 - **배치 업로드**: `file-multipart-server` (다중 파일 지원)
 - **레거시 연동**: `file-stream-server` (단순한 인터페이스)
+
+## File Multipart POJO Client
+
+Pure Java multipart/form-data client using only `java.net` APIs for uploading files with JSON metadata to the multipart server.
+
+### Features
+
+- **Pure Java Implementation**: Uses only `java.net.HttpURLConnection` without external HTTP libraries
+- **Multipart/Form-Data Support**: Properly implements multipart encoding for file uploads
+- **JSON Metadata Support**: Supports both inline JSON metadata and metadata from files
+- **Multiple File Upload**: Can upload multiple files in a single request
+- **Memory Efficient**: Streams files without loading them entirely into memory
+- **Progress Tracking**: Shows upload progress for each file
+- **Memory Monitoring**: Tracks memory usage during upload process
+- **Configurable**: Supports timeouts, file size limits, and buffer size configuration
+
+### Usage
+
+```bash
+# Single file upload with default metadata
+java -jar file-multipart-pojoclient-1.0.0.jar \
+    --files="test-file.txt" \
+    --target.url="http://localhost:8081/api/v1/multipart/upload"
+
+# Multiple file upload with inline metadata
+java -jar file-multipart-pojoclient-1.0.0.jar \
+    --files="file1.txt,file2.txt" \
+    --target.url="http://localhost:8081/api/v1/multipart/upload" \
+    --metadata='{"description":"Test upload","category":"test"}'
+
+# Multiple file upload with metadata from file
+java -jar file-multipart-pojoclient-1.0.0.jar \
+    --files="file1.txt,file2.txt" \
+    --target.url="http://localhost:8081/api/v1/multipart/upload" \
+    --metadata-file="metadata.json"
+```
+
+### Configuration
+
+Edit `src/main/resources/application.properties`:
+
+```properties
+# Connection and read timeouts
+file.multipart.connection.timeout=30000
+file.multipart.read.timeout=60000
+
+# File and request size limits
+file.multipart.max.file.size=104857600
+file.multipart.max.request.size=524288000
+
+# Upload buffer size
+file.multipart.buffer.size=8192
+```
+
+### Dependencies
+
+- Jackson 2.14.3 (JSON processing)
+- SLF4J 1.7.36 (Logging)
+
+### Testing
+
+Use the provided test script:
+```bash
+test-multipart-pojoclient.bat
+```
 

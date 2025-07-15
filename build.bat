@@ -1,29 +1,74 @@
 @echo off
-echo Building API Stream Demo...
+echo Building File Stream Demo Project...
+echo ====================================
 
-echo.
-echo Building parent project...
-call mvn clean compile
+echo Building root project...
+call mvn clean install
+if %errorlevel% neq 0 (
+    echo ERROR: Root project build failed
+    pause
+    exit /b 1
+)
 
-echo.
-echo Building server module...
+echo Building file-stream-server...
 cd file-stream-server
 call mvn clean package
+if %errorlevel% neq 0 (
+    echo ERROR: file-stream-server build failed
+    pause
+    exit /b 1
+)
 cd ..
 
-echo.
-echo Building client module...
+echo Building file-multipart-server...
+cd file-multipart-server
+call mvn clean package
+if %errorlevel% neq 0 (
+    echo ERROR: file-multipart-server build failed
+    pause
+    exit /b 1
+)
+cd ..
+
+echo Building file-stream-httpclient...
 cd file-stream-httpclient
 call mvn clean package
+if %errorlevel% neq 0 (
+    echo ERROR: file-stream-httpclient build failed
+    pause
+    exit /b 1
+)
+cd ..
+
+echo Building file-stream-pojoclient...
+cd file-stream-pojoclient
+call mvn clean package
+if %errorlevel% neq 0 (
+    echo ERROR: file-stream-pojoclient build failed
+    pause
+    exit /b 1
+)
+cd ..
+
+echo Building file-multipart-pojoclient...
+cd file-multipart-pojoclient
+call mvn clean package
+if %errorlevel% neq 0 (
+    echo ERROR: file-multipart-pojoclient build failed
+    pause
+    exit /b 1
+)
 cd ..
 
 echo.
-echo Build completed!
+echo All projects built successfully!
 echo.
-echo Server JAR: file-stream-server\target\file-stream-server-1.0.0.jar
-echo Client JAR: file-stream-httpclient\target\file-stream-httpclient-1.0.0.jar
+echo Available JARs:
+echo - file-stream-server/target/file-stream-server-1.0.0.jar
+echo - file-multipart-server/target/file-multipart-server-1.0.0.jar
+echo - file-stream-httpclient/target/file-stream-client-1.0.0.jar
+echo - file-stream-pojoclient/target/file-stream-pojoclient-1.0.0.jar
+echo - file-multipart-pojoclient/target/file-multipart-pojoclient-1.0.0.jar
 echo.
-echo To start server: cd file-stream-server && java -jar target\file-stream-server-1.0.0.jar
-echo To upload file: cd file-stream-httpclient && java -jar target\file-stream-httpclient-1.0.0.jar --file.path="C:\03_sources\seoseungwoo10_srcs\api-stream-demo\test-large.dat" --target.url="http://localhost:8080/api/v1/files/upload"
 
 pause
