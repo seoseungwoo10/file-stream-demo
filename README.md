@@ -27,13 +27,20 @@ file-stream-demo/
 │   ├── src/main/resources/
 │   │   └── application.properties
 │   └── target/file-stream-server-1.0.0.jar
-├── file-stream-client/          # Java CLI 스트리밍 클라이언트
+├── file-stream-httpclient/      # Java CLI HttpClient 스트리밍 클라이언트  
 │   ├── src/main/java/
-│   │   └── com/example/filestream/client/
+│   │   └── com/example/filestream/httpclient/
 │   │       └── FileStreamClient.java
 │   ├── src/main/resources/
 │   │   └── application.properties
-│   └── target/file-stream-client-1.0.0.jar
+│   └── target/file-stream-httpclient-1.0.0.jar
+├── file-stream-pojoclient/      # Java CLI POJO 스트리밍 클라이언트 (java.net 사용)
+│   ├── src/main/java/
+│   │   └── com/example/filestream/pojoclient/
+│   │       └── FileStreamClient.java
+│   ├── src/main/resources/
+│   │   └── application.properties
+│   └── target/file-stream-pojoclient-1.0.0.jar
 ├── pom.xml                      # Maven 부모 프로젝트 설정
 └── README.md
 ```
@@ -54,7 +61,8 @@ mvn clean package
 
 # 또는 개별 모듈 빌드
 cd file-stream-server && mvn clean package
-cd file-stream-client && mvn clean package
+cd file-stream-httpclient && mvn clean package
+cd file-stream-pojoclient && mvn clean package
 ```
 
 ### 3. 서버 실행
@@ -71,16 +79,32 @@ java -Xmx64m -Xms32m -jar target/file-stream-server-1.0.0.jar
 
 ### 4. 클라이언트로 파일 업로드
 
+#### HttpClient 기반 클라이언트 (권장)
 ```bash
-cd file-stream-client
+cd file-stream-httpclient
 
 # 기본 사용법
-java -jar target/file-stream-client-1.0.0.jar \
+java -jar target/file-stream-httpclient-1.0.0.jar \
   --file.path="C:/path/to/your/file.txt" \
   --target.url="http://localhost:8080/api/v1/files/upload"
 
 # 메모리 제한 테스트용 (선택사항)  
-java -Xmx64m -Xms32m -jar target/file-stream-client-1.0.0.jar \
+java -Xmx64m -Xms32m -jar target/file-stream-httpclient-1.0.0.jar \
+  --file.path="test-100mb.dat" \
+  --target.url="http://localhost:8080/api/v1/files/upload"
+```
+
+#### POJO 기반 클라이언트 (java.net 사용)
+```bash
+cd file-stream-pojoclient
+
+# 기본 사용법
+java -jar target/file-stream-pojoclient-1.0.0.jar \
+  --file.path="C:/path/to/your/file.txt" \
+  --target.url="http://localhost:8080/api/v1/files/upload"
+
+# 메모리 제한 테스트용 (선택사항)  
+java -Xmx64m -Xms32m -jar target/file-stream-pojoclient-1.0.0.jar \
   --file.path="test-100mb.dat" \
   --target.url="http://localhost:8080/api/v1/files/upload"
 ```
@@ -122,9 +146,19 @@ java -Xmx64m -Xms32m -jar target/file-stream-client-1.0.0.jar \
 
 ## 💻 클라이언트 사용법
 
+### 두 가지 클라이언트 옵션
+1. **HttpClient 기반 클라이언트** (`file-stream-httpclient`): Apache HttpClient 라이브러리 사용 (권장)
+2. **POJO 기반 클라이언트** (`file-stream-pojoclient`): 순수 Java `java.net` API 사용 (의존성 최소화)
+
 ### 명령어 형식
 ```bash
-java -jar file-stream-client-1.0.0.jar \
+# HttpClient 기반
+java -jar file-stream-httpclient-1.0.0.jar \
+  --file.path="<파일경로>" \
+  --target.url="<서버URL>"
+
+# POJO 기반  
+java -jar file-stream-pojoclient-1.0.0.jar \
   --file.path="<파일경로>" \
   --target.url="<서버URL>"
 ```
@@ -133,17 +167,17 @@ java -jar file-stream-client-1.0.0.jar \
 
 ```bash
 # Windows 경로
-java -jar file-stream-client-1.0.0.jar \
+java -jar file-stream-httpclient-1.0.0.jar \
   --file.path="C:\data\backup.zip" \
   --target.url="http://localhost:8080/api/v1/files/upload"
 
 # Unix/Linux 경로
-java -jar file-stream-client-1.0.0.jar \
+java -jar file-stream-httpclient-1.0.0.jar \
   --file.path="/home/user/data/backup.zip" \
   --target.url="http://localhost:8080/api/v1/files/upload"
 
 # 원격 서버
-java -jar file-stream-client-1.0.0.jar \
+java -jar file-stream-httpclient-1.0.0.jar \
   --file.path="/path/to/large-file.dat" \
   --target.url="http://remote-server:8080/api/v1/files/upload"
 ```
@@ -297,8 +331,18 @@ java -Xmx64m -Xms32m -jar file-stream-client-1.0.0.jar \
 
 프로젝트에 포함된 배치 스크립트들:
 
+**서버 관련:**
+- **`start-server.bat`**: 기본 서버 시작
 - **`start-server-memory-test.bat`**: 64MB 힙 제한 서버 시작
-- **`test-upload-memory.bat`**: 64MB 힙 제한 클라이언트 테스트  
+
+**클라이언트 테스트:**
+- **`test-upload.bat`**: HttpClient 기반 클라이언트 테스트
+- **`test-upload-pojo.bat`**: POJO 기반 클라이언트 테스트  
+- **`test-upload-memory.bat`**: HttpClient 메모리 제한 테스트
+- **`test-upload-pojo-memory.bat`**: POJO 메모리 제한 테스트
+
+**테스트 파일 생성:**
+- **`create-test-files.bat`**: 기본 테스트 파일 생성
 - **`create-100mb-test.bat`**: 100MB 테스트 파일 생성
 
 ## 📊 성능 검증 결과 ✅
@@ -487,7 +531,7 @@ java -Dlogging.level.com.example=DEBUG -jar file-stream-client-1.0.0.jar \
 
 ## 📝 라이선스
 
-이 프로젝트는 MIT 라이선스 하에 배포됩니다. 자세한 내용은 `LICENSE` 파일을 참조하세요.
+이 프로젝트는 MIT 라이선스 하에 배포됩니다.
 
 ## 🤝 기여 가이드라인
 
@@ -510,19 +554,6 @@ Pull Request 가이드라인:
 3. 코드 스타일 준수 (Google Java Style Guide)
 4. 상세한 커밋 메시지 작성
 
-## 📞 연락처 및 지원
-
-### 기술 지원
-- **GitHub Issues**: 버그 리포트 및 기능 요청
-- **Documentation**: 이 README 파일 및 코드 주석 참조
-- **Community**: GitHub Discussions (예정)
-
-### 프로젝트 정보
-- **Repository**: https://github.com/your-username/api-stream-demo
-- **Version**: 1.0.0 (MVP)
-- **Last Updated**: July 14, 2025
-- **Maintainer**: GitHub Copilot Community
-
 ---
 
 ## 📊 빠른 참조 테이블
@@ -532,8 +563,8 @@ Pull Request 가이드라인:
 |------|--------|
 | 전체 빌드 | `mvn clean package` |
 | 서버 실행 | `java -jar file-stream-server-1.0.0.jar` |
-| 파일 업로드 | `java -jar file-stream-client-1.0.0.jar --file.path="file.dat" --target.url="http://localhost:8080/api/v1/files/upload"` |
-| 메모리 제한 테스트 | `java -Xmx64m -jar file-stream-client-1.0.0.jar ...` |
+| 파일 업로드 | `java -jar file-stream-httpclient-1.0.0.jar --file.path="file.dat" --target.url="http://localhost:8080/api/v1/files/upload"` |
+| 메모리 제한 테스트 | `java -Xmx64m -jar file-stream-httpclient-1.0.0.jar ...` |
 
 ### 주요 포트 및 URL
 | 서비스 | URL |
@@ -553,3 +584,37 @@ Pull Request 가이드라인:
 ---
 
 > **🎯 목표 달성!** 이 시스템은 PRD에서 요구한 **"100MB 파일을 20MB 이하 메모리로 처리"** 라는 핵심 목표를 성공적으로 달성했습니다. 레거시 시스템 간 안정적인 파일 전송을 위한 견고한 기반을 제공합니다.
+
+## 🔄 두 가지 클라이언트 옵션 비교
+
+| 특징 | HttpClient 기반 | POJO 기반 (java.net) |
+|------|----------------|---------------------|
+| **라이브러리 의존성** | Apache HttpClient 4.5.14 | 순수 Java (java.net) |
+| **JAR 크기** | 약 2.5MB (의존성 포함) | 약 700KB (의존성 최소) |
+| **호환성** | HTTP/1.1 고급 기능 지원 | HTTP/1.1 기본 기능만 |
+| **성능** | 연결 풀링, 재시도 등 최적화 | 단순하고 직접적인 구현 |
+| **메모리 사용량** | 동일 (스트리밍 기반) | 동일 (스트리밍 기반) |
+| **권장 용도** | 프로덕션 환경, 복잡한 요구사항 | 레거시 환경, 의존성 최소화 |
+
+### HttpClient 기반 클라이언트
+- **장점**: 
+  - 안정적이고 검증된 HTTP 라이브러리
+  - 연결 재사용, 자동 재시도 등 고급 기능
+  - 상세한 HTTP 설정 가능
+- **단점**: 
+  - 외부 라이브러리 의존성
+  - JAR 파일 크기가 상대적으로 큼
+
+### POJO 기반 클라이언트 (java.net)
+- **장점**: 
+  - 외부 의존성 없음 (Jackson 제외)
+  - 가벼운 JAR 파일
+  - 순수 Java API만 사용하여 호환성 우수
+- **단점**: 
+  - 기본적인 HTTP 기능만 제공
+  - 연결 풀링 등 고급 최적화 기능 없음
+
+### 사용 권장사항
+- **프로덕션 환경**: `file-stream-httpclient` 권장
+- **레거시 시스템**: `file-stream-pojoclient` 권장 (의존성 최소화)
+- **테스트 환경**: 둘 다 동일한 성능과 기능 제공

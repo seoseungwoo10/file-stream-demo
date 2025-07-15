@@ -14,7 +14,8 @@
 
     <modules>
         <module>file-stream-server</module>
-        <module>file-stream-client</module>
+        <module>file-stream-httpclient</module>
+        <module>file-stream-pojoclient</module>
     </modules>
 
     <properties>

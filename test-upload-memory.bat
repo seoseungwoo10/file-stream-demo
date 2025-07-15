@@ -18,7 +18,7 @@ echo Server: %TARGET_URL%
 echo Client heap limit: 64MB
 echo.
 
-cd file-stream-client
-java -Xmx64m -Xms32m -jar target\file-stream-client-1.0.0.jar --file.path="%FILE_PATH%" --target.url="%TARGET_URL%"
+cd file-file-stream-httpclient
+java -Xmx64m -Xms32m -jar target\file-file-stream-httpclient-1.0.0.jar --file.path="%FILE_PATH%" --target.url="%TARGET_URL%"
 
 pause

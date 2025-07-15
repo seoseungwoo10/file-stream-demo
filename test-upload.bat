@@ -16,7 +16,7 @@ echo File: %FILE_PATH%
 echo Server: %TARGET_URL%
 echo.
 
-cd file-stream-client
-java -jar target\file-stream-client-1.0.0.jar --file.path="%FILE_PATH%" --target.url="%TARGET_URL%"
+cd file-file-stream-httpclient
+java -jar target\file-file-stream-httpclient-1.0.0.jar --file.path="%FILE_PATH%" --target.url="%TARGET_URL%"
 
 pause

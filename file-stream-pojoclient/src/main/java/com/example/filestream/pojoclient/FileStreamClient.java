@@ -1,18 +1,10 @@
-package com.example.filestream.client;
+package com.example.filestream.pojoclient;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpResponse;
-import org.apache.http.client.config.RequestConfig;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.entity.AbstractHttpEntity;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
-import org.apache.http.util.EntityUtils;
 
 import java.io.*;
-import java.net.URLEncoder;
+import java.net.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -79,8 +71,8 @@ public class FileStreamClient {
         }
 
         if (filePath == null || targetUrl == null) {
-            System.err.println("Usage: java -jar file-stream-client-1.0.0.jar --file.path=\"<file_path>\" --target.url=\"<target_url>\"");
-            System.err.println("Example: java -jar file-stream-client-1.0.0.jar --file.path=\"C:/data/backup.zip\" --target.url=\"http://localhost:8080/api/v1/files/upload\"");
+            System.err.println("Usage: java -jar file-stream-pojoclient-1.0.0.jar --file.path=\"<file_path>\" --target.url=\"<target_url>\"");
+            System.err.println("Example: java -jar file-stream-pojoclient-1.0.0.jar --file.path=\"C:/data/backup.zip\" --target.url=\"http://localhost:8080/api/v1/files/upload\"");
             System.exit(1);
         }
 
@@ -124,34 +116,43 @@ public class FileStreamClient {
         // URL 인코딩된 파일명으로 최종 URL 생성
         String encodedFilename = URLEncoder.encode(filename, "UTF-8");
         String finalUrl = targetUrl + "?filename=" + encodedFilename;
+        
+        System.out.println("Sending request to: " + finalUrl);
 
-        // HTTP 클라이언트 설정 (타임아웃 적용)
-        RequestConfig requestConfig = RequestConfig.custom()
-            .setConnectTimeout(connectionTimeout)
-            .setSocketTimeout(readTimeout)
-            .build();
-
-        try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
-
-            HttpPost httpPost = new HttpPost(finalUrl);
-            httpPost.setHeader("Content-Type", "application/octet-stream");
-            httpPost.setConfig(requestConfig);
-
-            // 청크 기반 스트리밍 엔티티 생성
-            ChunkedStreamingEntity entity = new ChunkedStreamingEntity(path, fileSize, chunkSize);
-            httpPost.setEntity(entity);
-
-            System.out.println("Sending request to: " + finalUrl);
+        // URL 연결 설정
+        URL url = new URL(finalUrl);
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        
+        try {
+            // HTTP 메서드 및 헤더 설정
+            connection.setRequestMethod("POST");
+            connection.setRequestProperty("Content-Type", "application/octet-stream");
+            connection.setRequestProperty("Content-Length", String.valueOf(fileSize));
+            connection.setDoOutput(true);
+            connection.setDoInput(true);
+            
+            // 타임아웃 설정
+            connection.setConnectTimeout(connectionTimeout);
+            connection.setReadTimeout(readTimeout);
+            
+            // 청킹 전송 활성화 (메모리 효율성을 위해)
+            connection.setChunkedStreamingMode(chunkSize);
+            
             printMemoryUsage("During upload");
-
-            HttpResponse response = httpClient.execute(httpPost);
-            int statusCode = response.getStatusLine().getStatusCode();
+            
+            // 파일 업로드 (스트리밍 방식)
+            try (InputStream fileInputStream = Files.newInputStream(path);
+                 OutputStream outputStream = connection.getOutputStream()) {
+                
+                streamFileWithProgress(fileInputStream, outputStream, fileSize);
+            }
             
             printMemoryUsage("After upload");
             
-            HttpEntity responseEntity = response.getEntity();
-            String responseBody = responseEntity != null ? EntityUtils.toString(responseEntity) : "";
-
+            // 응답 처리
+            int statusCode = connection.getResponseCode();
+            String responseBody = readResponseBody(connection);
+            
             if (statusCode == 200) {
                 System.out.println("File '" + filename + "' uploaded successfully. Server response: " + statusCode + " OK");
                 
@@ -170,10 +171,65 @@ public class FileStreamClient {
                 
                 printMemoryUsage("Upload completed");
             } else {
-                System.err.println("Error uploading file. Server response: " + statusCode + " " + response.getStatusLine().getReasonPhrase());
+                System.err.println("Error uploading file. Server response: " + statusCode + " " + connection.getResponseMessage());
                 System.err.println("Response body: " + responseBody);
                 throw new RuntimeException("Server returned HTTP " + statusCode);
             }
+            
+        } finally {
+            connection.disconnect();
+        }
+    }
+    
+    private static void streamFileWithProgress(InputStream inputStream, OutputStream outputStream, long fileSize) throws IOException {
+        byte[] buffer = new byte[chunkSize];
+        int bytesRead;
+        long totalBytesRead = 0;
+        long lastProgressUpdate = 0;
+        
+        while ((bytesRead = inputStream.read(buffer)) != -1) {
+            outputStream.write(buffer, 0, bytesRead);
+            totalBytesRead += bytesRead;
+            
+            // 진행률 출력 (10% 단위)
+            long currentProgress = (totalBytesRead * 100) / fileSize;
+            if (currentProgress >= lastProgressUpdate + 10) {
+                System.out.printf("Upload progress: %d%% (%d/%d bytes)%n", 
+                    currentProgress, totalBytesRead, fileSize);
+                lastProgressUpdate = currentProgress;
+                
+                // 메모리 사용량 체크 (진행률 출력 시점에만)
+                if (currentProgress % 20 == 0) {
+                    printMemoryUsage("Progress " + currentProgress + "%");
+                }
+            }
+        }
+        
+        outputStream.flush();
+        System.out.println("Upload progress: 100% (completed)");
+    }
+    
+    private static String readResponseBody(HttpURLConnection connection) throws IOException {
+        InputStream responseStream;
+        
+        // 에러 응답인 경우 에러 스트림 사용
+        if (connection.getResponseCode() >= 400) {
+            responseStream = connection.getErrorStream();
+        } else {
+            responseStream = connection.getInputStream();
+        }
+        
+        if (responseStream == null) {
+            return "";
+        }
+        
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(responseStream))) {
+            StringBuilder response = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                response.append(line).append("\n");
+            }
+            return response.toString().trim();
         }
     }
     
@@ -193,71 +249,6 @@ public class FileStreamClient {
         if (usedMemory > 20 * 1024 * 1024) {
             System.err.printf("⚠️  WARNING: Memory usage exceeds 20MB limit! Used: %.2f MB%n", 
                 usedMemory / 1024.0 / 1024.0);
-        }
-    }
-    
-    // 청크 기반 스트리밍 엔티티 클래스
-    private static class ChunkedStreamingEntity extends AbstractHttpEntity {
-        private final Path filePath;
-        private final long fileSize;
-        private final int chunkSize;
-        
-        public ChunkedStreamingEntity(Path filePath, long fileSize, int chunkSize) {
-            this.filePath = filePath;
-            this.fileSize = fileSize;
-            this.chunkSize = chunkSize;
-            setContentType("application/octet-stream");
-        }
-        
-        @Override
-        public boolean isRepeatable() {
-            return true;
-        }
-        
-        @Override
-        public long getContentLength() {
-            return fileSize;
-        }
-        
-        @Override
-        public InputStream getContent() throws IOException {
-            return Files.newInputStream(filePath);
-        }
-        
-        @Override
-        public void writeTo(OutputStream outStream) throws IOException {
-            try (InputStream inStream = Files.newInputStream(filePath)) {
-                byte[] buffer = new byte[chunkSize];
-                int bytesRead;
-                long totalBytesRead = 0;
-                long lastProgressUpdate = 0;
-                
-                while ((bytesRead = inStream.read(buffer)) != -1) {
-                    outStream.write(buffer, 0, bytesRead);
-                    totalBytesRead += bytesRead;
-                    
-                    // 진행률 출력 (10% 단위)
-                    long currentProgress = (totalBytesRead * 100) / fileSize;
-                    if (currentProgress >= lastProgressUpdate + 10) {
-                        System.out.printf("Upload progress: %d%% (%d/%d bytes)%n", 
-                            currentProgress, totalBytesRead, fileSize);
-                        lastProgressUpdate = currentProgress;
-                        
-                        // 메모리 사용량 체크 (진행률 출력 시점에만)
-                        if (currentProgress % 20 == 0) {
-                            FileStreamClient.printMemoryUsage("Progress " + currentProgress + "%");
-                        }
-                    }
-                }
-                
-                outStream.flush();
-                System.out.println("Upload progress: 100% (completed)");
-            }
-        }
-        
-        @Override
-        public boolean isStreaming() {
-            return true;
         }
     }
 }
