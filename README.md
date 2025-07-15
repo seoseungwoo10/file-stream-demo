@@ -19,7 +19,7 @@
 
 ```
 file-stream-demo/
-├── file-stream-server/          # Spring Boot REST API 서버
+├── file-stream-server/          # Spring Boot REST API 서버 (스트리밍 방식)
 │   ├── src/main/java/
 │   │   └── com/example/filestream/server/
 │   │       ├── FileStreamServerApplication.java
@@ -27,6 +27,15 @@ file-stream-demo/
 │   ├── src/main/resources/
 │   │   └── application.properties
 │   └── target/file-stream-server-1.0.0.jar
+├── file-multipart-server/       # Spring Boot Multipart 서버 (JSON 메타데이터 + 다중 파일)
+│   ├── src/main/java/
+│   │   └── com/example/filestream/multipart/
+│   │       ├── FileMultipartServerApplication.java
+│   │       ├── controller/MultipartFileUploadController.java
+│   │       └── dto/ (FileUploadMetadata, FileUploadResponse, ErrorResponse)
+│   ├── src/main/resources/
+│   │   └── application.properties
+│   └── target/file-multipart-server-1.0.0.jar
 ├── file-stream-httpclient/      # Java CLI HttpClient 스트리밍 클라이언트  
 │   ├── src/main/java/
 │   │   └── com/example/filestream/httpclient/
@@ -109,9 +118,23 @@ java -Xmx64m -Xms32m -jar target/file-stream-pojoclient-1.0.0.jar \
   --target.url="http://localhost:8080/api/v1/files/upload"
 ```
 
+### Multipart 서버 실행 (포트 8081)
+
+```bash
+cd file-multipart-server
+java -jar target/file-multipart-server-1.0.0.jar
+
+# 또는 배치 스크립트 사용
+start-multipart-server.bat
+```
+
+Multipart 서버는 `http://localhost:8081`에서 실행됩니다.
+
 ## 📋 API 명세
 
-### 파일 업로드 API
+### 스트리밍 서버 API (포트 8080)
+
+#### 파일 업로드 API
 
 - **Method:** `POST`
 - **URL:** `/api/v1/files/upload`
@@ -121,7 +144,7 @@ java -Xmx64m -Xms32m -jar target/file-stream-pojoclient-1.0.0.jar \
   - `Content-Type`: `application/octet-stream`
 - **Request Body:** 파일의 Raw Binary 데이터 (스트림 방식)
 
-#### 성공 응답 (200 OK)
+##### 성공 응답 (200 OK)
 ```json
 {
   "message": "File uploaded successfully: example.txt",
@@ -141,6 +164,120 @@ java -Xmx64m -Xms32m -jar target/file-stream-pojoclient-1.0.0.jar \
 ```json
 {
   "error": "Failed to save file on server."
+}
+```
+
+### Multipart 서버 API (포트 8081)
+
+#### 다중 파일 업로드 API
+
+- **Method:** `POST`
+- **URL:** `/api/v1/multipart/upload`
+- **Content-Type:** `multipart/form-data`
+- **Form Fields:**
+  - `files` (필수): 업로드할 파일들 (다중 선택 가능)
+  - `metadata` (필수): JSON 형태의 메타데이터
+
+##### 메타데이터 JSON 스키마
+```json
+{
+  "description": "파일 설명 (필수)",
+  "category": "파일 카테고리 (필수)", 
+  "uploadedBy": "업로더 이름 (선택)",
+  "tags": ["tag1", "tag2"],
+  "customFields": {
+    "source": "업로드 소스",
+    "priority": "우선순위"
+  },
+  "compressed": false,
+  "encoding": "UTF-8"
+}
+```
+
+##### 성공 응답 (200 OK)
+```json
+{
+  "message": "Successfully uploaded 2 files",
+  "files": [
+    {
+      "originalFilename": "document.pdf",
+      "savedFilename": "20250715_143022_a1b2c3d4_document.pdf",
+      "contentType": "application/pdf",
+      "size": 1048576,
+      "path": "./uploads/20250715_143022_a1b2c3d4_document.pdf"
+    }
+  ],
+  "metadata": {
+    "description": "Important documents",
+    "category": "business",
+    "uploadedBy": "john.doe",
+    "timestamp": "2025-07-15 14:30:22",
+    "tags": ["important", "business"],
+    "compressed": false,
+    "encoding": "UTF-8"
+  },
+  "totalSize": 1048576,
+  "fileCount": 1,
+  "uploadedAt": "2025-07-15 14:30:22"
+}
+```
+
+#### 단일 파일 업로드 API
+
+- **Method:** `POST`
+- **URL:** `/api/v1/multipart/upload/single`
+- **Content-Type:** `multipart/form-data`
+- **Form Fields:**
+  - `file` (필수): 업로드할 파일
+  - `metadata` (선택): JSON 형태의 메타데이터
+
+#### 업로드된 파일 목록 조회
+
+- **Method:** `GET`
+- **URL:** `/api/v1/multipart/files`
+- **응답:** 업로드된 파일명 목록
+
+```json
+[
+  "20250715_143022_a1b2c3d4_document.pdf",
+  "20250715_143155_e5f6g7h8_image.jpg"
+]
+```
+
+### 공통 에러 응답
+
+- **400 Bad Request**: 잘못된 요청
+```json
+{
+  "error": "잘못된 요청입니다."
+}
+```
+
+- **401 Unauthorized**: 인증 실패
+```json
+{
+  "error": "인증에 실패하였습니다."
+}
+```
+
+- **403 Forbidden**: 접근 금지
+```json
+{
+  "error": "이 작업에 대한 권한이 없습니다."
+}
+```
+
+- **404 Not Found**: 요청한 리소스 없음
+```json
+{
+  "error": "요청한 리소스를 찾을 수 없습니다."
+}
+```
+
+- **500 Internal Server Error**: 서버 내부 오류
+```json
+{
+  "error": "서버 내부 오류가 발생하였습니다."
 }
 ```
 
@@ -206,6 +343,57 @@ File 'test-100mb.dat' uploaded successfully. Server response: 200 OK
 Server message: File uploaded successfully: test-100mb.dat
 Uploaded size: 104857600 bytes
 ```
+
+## 💻 Multipart 서버 사용법
+
+### cURL을 사용한 다중 파일 업로드
+
+```bash
+# JSON 메타데이터와 함께 다중 파일 업로드
+curl -X POST \
+  -F "files=@document1.pdf" \
+  -F "files=@document2.pdf" \
+  -F "metadata={\"description\":\"Important documents\",\"category\":\"business\",\"uploadedBy\":\"john.doe\",\"tags\":[\"important\",\"business\"]}" \
+  http://localhost:8081/api/v1/multipart/upload
+
+# 단일 파일 업로드 (기본 메타데이터 자동 생성)
+curl -X POST \
+  -F "file=@image.jpg" \
+  http://localhost:8081/api/v1/multipart/upload/single
+
+# 업로드된 파일 목록 조회
+curl http://localhost:8081/api/v1/multipart/files
+```
+
+### PowerShell을 사용한 업로드
+
+```powershell
+# 메타데이터 준비
+$metadata = @{
+    description = "Test upload from PowerShell"
+    category = "test"
+    uploadedBy = "powershell-user"
+    tags = @("test", "powershell")
+} | ConvertTo-Json -Compress
+
+# 파일 업로드
+curl -X POST `
+  -F "files=@testfile.txt" `
+  -F "metadata=$metadata" `
+  http://localhost:8081/api/v1/multipart/upload
+```
+
+### 지원되는 메타데이터 필드
+
+| 필드 | 타입 | 필수 | 설명 |
+|------|------|------|------|
+| `description` | String | ✅ | 파일에 대한 설명 |
+| `category` | String | ✅ | 파일 카테고리 (예: business, personal, test) |
+| `uploadedBy` | String | ❌ | 업로더 식별자 |
+| `tags` | Array | ❌ | 파일 태그 목록 |
+| `customFields` | Object | ❌ | 사용자 정의 필드들 |
+| `compressed` | Boolean | ❌ | 압축 여부 (기본값: false) |
+| `encoding` | String | ❌ | 인코딩 (기본값: UTF-8) |
 
 ## 🔧 주요 기술적 특징
 
@@ -341,13 +529,15 @@ java -Xmx64m -Xms32m -jar file-stream-client-1.0.0.jar \
 프로젝트에 포함된 배치 스크립트들:
 
 **서버 관련:**
-- **`start-server.bat`**: 기본 서버 시작
-- **`start-server-memory-test.bat`**: 64MB 힙 제한 서버 시작
+- **`start-server.bat`**: 스트리밍 서버 시작 (포트 8080)
+- **`start-multipart-server.bat`**: Multipart 서버 시작 (포트 8081)
+- **`start-server-memory-test.bat`**: 64MB 힙 제한 스트리밍 서버 시작
 
 **클라이언트 테스트:**
-- **`test-upload.bat`**: HttpClient 기반 클라이언트 테스트
+- **`test-upload-httpclient.bat`**: HttpClient 기반 클라이언트 테스트
 - **`test-upload-pojo.bat`**: POJO 기반 클라이언트 테스트  
-- **`test-upload-memory.bat`**: HttpClient 메모리 제한 테스트
+- **`test-multipart-upload.bat`**: Multipart 서버 업로드 테스트
+- **`test-upload-httpclient-memory.bat`**: HttpClient 메모리 제한 테스트
 - **`test-upload-pojo-memory.bat`**: POJO 메모리 제한 테스트
 
 **테스트 파일 생성:**
@@ -612,11 +802,14 @@ Pull Request 가이드라인:
 ### 주요 포트 및 URL
 | 서비스 | URL |
 |--------|-----|
-| API 서버 | http://localhost:8080 |
-| 파일 업로드 | http://localhost:8080/api/v1/files/upload |
-| 헬스체크 | http://localhost:8080/actuator/health |
-| 서버 정보 | http://localhost:8080/actuator/info |
-| 메트릭스 | http://localhost:8080/actuator/metrics |
+| 스트리밍 서버 | http://localhost:8080 |
+| Multipart 서버 | http://localhost:8081 |
+| 스트리밍 업로드 | http://localhost:8080/api/v1/files/upload |
+| Multipart 업로드 | http://localhost:8081/api/v1/multipart/upload |
+| 스트리밍 헬스체크 | http://localhost:8080/actuator/health |
+| Multipart 헬스체크 | http://localhost:8081/actuator/health |
+| 서버 정보 | http://localhost:808X/actuator/info |
+| 메트릭스 | http://localhost:808X/actuator/metrics |
 
 ### 성능 지표 (100MB 파일 기준)
 | 메트릭 | 값 |
@@ -663,4 +856,32 @@ Pull Request 가이드라인:
 - **프로덕션 환경**: `file-stream-httpclient` 권장
 - **레거시 시스템**: `file-stream-pojoclient` 권장 (의존성 최소화)
 - **테스트 환경**: 둘 다 동일한 성능과 기능 제공
+
+## 🔄 두 가지 서버 옵션
+
+이 프로젝트는 서로 다른 용도에 맞는 두 가지 서버를 제공합니다:
+
+### 1. 스트리밍 서버 (`file-stream-server`) - 포트 8080
+- **용도**: 메모리 효율적인 대용량 파일 전송
+- **방식**: Raw Binary Stream (application/octet-stream)
+- **특징**: 
+  - 8KB 청크 기반 스트리밍
+  - 100MB+ 파일도 20MB 이하 메모리 사용
+  - 단일 파일 업로드만 지원
+  - 최소한의 메타데이터 (파일명만)
+
+### 2. Multipart 서버 (`file-multipart-server`) - 포트 8081  
+- **용도**: JSON 메타데이터와 다중 파일 업로드
+- **방식**: Multipart/form-data
+- **특징**:
+  - JSON 기반 풍부한 메타데이터 지원
+  - 다중 파일 동시 업로드
+  - 파일 검증 및 분류 기능
+  - 업로드 히스토리 및 태그 시스템
+
+### 서버 선택 가이드
+- **대용량 파일 전송**: `file-stream-server` (메모리 효율성 우선)
+- **메타데이터 관리**: `file-multipart-server` (기능 풍부함 우선)
+- **배치 업로드**: `file-multipart-server` (다중 파일 지원)
+- **레거시 연동**: `file-stream-server` (단순한 인터페이스)
 
