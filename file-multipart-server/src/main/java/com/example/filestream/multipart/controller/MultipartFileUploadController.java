@@ -23,9 +23,7 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 @RestController
 @RequestMapping("/api/v1/multipart")
@@ -147,7 +145,7 @@ public class MultipartFileUploadController {
 
             FileUploadResponse response = new FileUploadResponse(
                     "File uploaded successfully: " + file.getOriginalFilename(),
-                    List.of(fileInfo),
+                    Collections.singletonList(fileInfo),
                     metadata
             );
 
@@ -168,7 +166,7 @@ public class MultipartFileUploadController {
         try {
             Path uploadPath = Paths.get(uploadDirectory);
             if (!Files.exists(uploadPath)) {
-                return ResponseEntity.ok(List.of());
+                return ResponseEntity.ok(Collections.emptyList());
             }
 
             List<String> files = new ArrayList<>();
@@ -276,15 +274,15 @@ public class MultipartFileUploadController {
         long usedMemory = totalMemory - freeMemory;
         long maxMemory = runtime.maxMemory();
 
-        logger.info("[{}] Memory Usage - Used: {:.2f} MB / Max: {:.2f} MB",
+        logger.info("[{}] Memory Usage - Used: {} MB / Max: {} MB",
                 phase,
-                usedMemory / 1024.0 / 1024.0,
-                maxMemory / 1024.0 / 1024.0);
+                String.format("%.2f", usedMemory / 1024.0 / 1024.0),
+                String.format("%.2f", maxMemory / 1024.0 / 1024.0));
 
-        // 100MB 이상 사용 시 경고
-        if (usedMemory > 100 * 1024 * 1024) {
-            logger.warn("⚠️  WARNING: Memory usage exceeds 100MB limit! Used: {:.2f} MB",
-                    usedMemory / 1024.0 / 1024.0);
+        // 20MB 이상 사용 시 경고
+        if (usedMemory > 20 * 1024 * 1024) {
+            logger.warn("⚠️ WARNING: Memory usage exceeds 20MB limit! Used: {} MB",
+                    String.format("%.2f", usedMemory / 1024.0 / 1024.0));
         }
     }
 }
