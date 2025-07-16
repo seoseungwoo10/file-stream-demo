@@ -11,11 +11,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
-import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-
-import javax.validation.Valid;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -39,30 +36,36 @@ public class MultipartFileUploadController {
     private int bufferSize;
 
     /**
-     * 다중 파일 업로드 (JSON 메타데이터 포함)
+     * 다중 파일 업로드 (JSON 메타데이터 선택사항)
      */
     @PostMapping("/upload")
     public ResponseEntity<?> uploadFiles(
             @RequestParam("files") MultipartFile[] files,
-            @RequestParam("metadata") String metadataJson) {
+            @RequestParam(value = "metadata", required = false) String metadataJson) {
 
         printMemoryUsage("Upload start");
 
         try {
-            // JSON 메타데이터 파싱
+            // JSON 메타데이터 파싱 (선택사항)
             FileUploadMetadata metadata;
-            try {
-                metadata = objectMapper.readValue(metadataJson, FileUploadMetadata.class);
-            } catch (JsonProcessingException e) {
-                logger.error("Invalid JSON metadata: {}", e.getMessage());
-                return ResponseEntity.badRequest()
-                        .body(new ErrorResponse("Invalid JSON", "Metadata JSON is malformed: " + e.getMessage(), 400));
-            }
-
-            // 메타데이터 검증
-            if (!StringUtils.hasText(metadata.getDescription()) || !StringUtils.hasText(metadata.getCategory())) {
-                return ResponseEntity.badRequest()
-                        .body(new ErrorResponse("Validation Error", "Description and category are required", 400));
+            if (StringUtils.hasText(metadataJson)) {
+                try {
+                    metadata = objectMapper.readValue(metadataJson, FileUploadMetadata.class);
+                    
+                    // 메타데이터 검증 (제공된 경우만)
+                    if (!StringUtils.hasText(metadata.getDescription()) || !StringUtils.hasText(metadata.getCategory())) {
+                        return ResponseEntity.badRequest()
+                                .body(new ErrorResponse("Validation Error", "Description and category are required when metadata is provided", 400));
+                    }
+                } catch (JsonProcessingException e) {
+                    logger.error("Invalid JSON metadata: {}", e.getMessage());
+                    return ResponseEntity.badRequest()
+                            .body(new ErrorResponse("Invalid JSON", "Metadata JSON is malformed: " + e.getMessage(), 400));
+                }
+            } else {
+                // 메타데이터가 제공되지 않은 경우 기본값 생성
+                metadata = createDefaultMetadataForMultipleFiles(files);
+                logger.info("No metadata provided, using default metadata");
             }
 
             // 파일 검증
@@ -187,14 +190,15 @@ public class MultipartFileUploadController {
      * 파일 처리 (저장)
      */
     private FileUploadResponse.FileInfo processFile(MultipartFile file, Path uploadPath, FileUploadMetadata metadata) throws IOException {
-        String originalFilename = StringUtils.cleanPath(file.getOriginalFilename());
-        String fileExtension = getFileExtension(originalFilename);
+        String originalFilename = getOriginalFilenameSafe(file);
+        String cleanedFilename = StringUtils.cleanPath(originalFilename);
+        String fileExtension = getFileExtension(cleanedFilename);
         
         // 고유한 파일명 생성 (타임스탬프 + UUID)
         String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
         String uniqueId = UUID.randomUUID().toString().substring(0, 8);
         String savedFilename = String.format("%s_%s_%s%s", 
-                timestamp, uniqueId, sanitizeFilename(originalFilename), fileExtension);
+                timestamp, uniqueId, sanitizeFilename(cleanedFilename), fileExtension);
 
         Path filePath = uploadPath.resolve(savedFilename);
 
@@ -238,6 +242,36 @@ public class MultipartFileUploadController {
         metadata.setCategory("general");
         metadata.setUploadedBy("anonymous");
         return metadata;
+    }
+
+    /**
+     * 다중 파일용 기본 메타데이터 생성
+     */
+    private FileUploadMetadata createDefaultMetadataForMultipleFiles(MultipartFile[] files) {
+        FileUploadMetadata metadata = new FileUploadMetadata();
+        
+        if (files != null && files.length > 0) {
+            if (files.length == 1) {
+                metadata.setDescription("Single file upload: " + getOriginalFilenameSafe(files[0]));
+            } else {
+                metadata.setDescription("Multiple files upload: " + files.length + " files");
+            }
+        } else {
+            metadata.setDescription("File upload");
+        }
+        
+        metadata.setCategory("general");
+        metadata.setUploadedBy("anonymous");
+        return metadata;
+    }
+
+    /**
+     * 안전한 파일명 추출 (null 체크 포함)
+     */
+    private String getOriginalFilenameSafe(MultipartFile file) {
+        if (file == null) return "unknown";
+        String filename = file.getOriginalFilename();
+        return filename != null ? filename : "unnamed_file";
     }
 
     /**

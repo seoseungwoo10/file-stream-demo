@@ -942,6 +942,9 @@ java -jar file-multipart-pojoclient-1.0.0.jar \
     --files="file1.txt,file2.txt" \
     --target.url="http://localhost:8081/api/v1/multipart/upload" \
     --metadata-file="metadata.json"
+
+# CURL 을 이용해 다중 파일 업로드
+curl -X POST -F "files=@test-multipart.txt" -F "files=@test-multipart2.txt" http://localhost:8081/api/v1/multipart/upload    
 ```
 
 ### 설정
