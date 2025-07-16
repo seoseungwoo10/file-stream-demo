@@ -1,3 +1,0 @@
-Second test file for multipart upload.
-This file is used to test multiple file upload functionality.
-Different content from the first file.
