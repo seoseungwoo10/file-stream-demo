@@ -71,7 +71,8 @@ public class FileUploadController {
             printMemoryUsage("After file processing");
             
             response.put("message", "File uploaded successfully: " + filename);
-            response.put("size", bytesWritten);
+            response.put("fileCount", 1);
+            response.put("fileSize", bytesWritten);
             
             printMemoryUsage("Upload completed");
             
